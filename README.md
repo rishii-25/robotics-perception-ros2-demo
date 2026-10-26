@@ -1,12 +1,24 @@
-# Robotics Perception + ROS2 Demo
+# Autonomous Perception-to-Navigation Pipeline (ROS2)
 
-A small end-to-end robotics perception pipeline: a YOLOv8 object detector
-publishes what it sees as a ROS2 topic, and a separate decision node
-subscribes to it and reacts — demonstrating the perception → decision →
-(eventual) action pattern used in real robotic systems.
+An end-to-end robotics perception-to-action pipeline, built incrementally
+toward a target-following, obstacle-avoiding mobile robot: a YOLOv8 object
+detector publishes what it sees as a ROS2 topic, and a decision node
+subscribes to it and reacts — the perception → decision → action pattern
+used in real robotic systems.
 
 Built as a hands-on exploration of the Robotics & AI stack: computer
-vision, ROS2 middleware, and simulation.
+vision, ROS2 middleware, closed-loop control, and simulation.
+
+## Roadmap
+
+| Stage | Status | Notes |
+|---|---|---|
+| Object detection (YOLOv8 + OpenCV) | ✅ Done | `cv_detection/` — image/video/webcam |
+| ROS2 node/topic pub-sub pattern | ✅ Done | `minimal_demo/` |
+| Perception node → decision node (reactor) | ✅ Done | `yolo_detector/` |
+| Closed-loop target following | 🔄 In progress | Proportional control on turtlesim driven by detection position |
+| Obstacle avoidance (simulated LiDAR/depth) | 📋 Planned | Needs a 3D sim (Gazebo); blocked locally by WSL2 GPU/rendering limits |
+| Performance evaluation (detection rate, latency, following error) | 📋 Planned | Logging harness around the existing nodes |
 
 ## What's in here
 
