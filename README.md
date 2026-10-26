@@ -1,80 +1,60 @@
-# Robotics Track Prep — Tonight's Build
+# Robotics Perception + ROS2 Demo
 
-Two independent pieces, both runnable tonight on your existing WSL2 Ubuntu
-(same one you use for VLSI-ML work):
+A small end-to-end robotics perception pipeline: a YOLOv8 object detector
+publishes what it sees as a ROS2 topic, and a separate decision node
+subscribes to it and reacts — demonstrating the perception → decision →
+(eventual) action pattern used in real robotic systems.
 
-1. `cv_detection/` — YOLOv8 object detection with OpenCV (no ROS2 needed)
-2. `ros2_ws/` — minimal ROS2 publisher/subscriber (nodes + topics)
+Built as a hands-on exploration of the Robotics & AI stack: computer
+vision, ROS2 middleware, and simulation.
 
-Do the CV part first — it's faster to get a visible result and doesn't
-depend on ROS2 being installed correctly.
+## What's in here
 
----
+| Folder | What it does |
+|---|---|
+| `cv_detection/` | Standalone YOLOv8 + OpenCV object detection (image/video/webcam) |
+| `ros2_ws/src/minimal_demo/` | A minimal ROS2 publisher/subscriber pair — the basic node/topic communication pattern |
+| `ros2_ws/src/yolo_detector/` | The combined pipeline: a `detector` node runs YOLO and publishes detections to a topic; a `reactor` node subscribes and demonstrates decision logic based on what's detected |
 
-## Part 1: OpenCV + YOLOv8 object detection
+## Why this architecture
+
+Real robots split perception and decision-making into independent
+processes that communicate over a message bus (ROS2's pub/sub model),
+rather than one monolithic script. This repo is a small, working example
+of that pattern:
+
+```
+ Camera / image  →  OpenCV (frame capture)  →  YOLOv8 (inference)
+                                                     │
+                                            ROS2 topic: /detected_objects
+                                                     │
+                                       reactor node (decision logic)
+                                                     │
+                                   → would drive a motor / actuator command
+```
+
+The `detector` node has no idea who (if anyone) is listening. The
+`reactor` node has no idea a camera or neural network is involved. That
+decoupling is what makes ROS2 useful for real hardware — swap the camera
+for a different sensor, or the reactor for actual motor control, without
+touching the other side.
+
+## Running it
+
+### 1. Object detection (no ROS2 required)
 
 ```bash
 cd cv_detection
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-# Easiest first run: on a photo (avoids WSL2 webcam headaches)
-python detect.py --source path/to/any_photo.jpg
-
-# Or try live webcam (works if you're on WSL2 with usbipd-win camera
-# passthrough set up, or just run this part on native Windows Python instead)
-python detect.py --source 0
+python detect.py --source test.jpg --save
 ```
+Outputs `annotated_output.jpg` with bounding boxes, labels, and confidence
+scores. Also supports `--source 0` for a live webcam feed.
 
-First run auto-downloads `yolov8n.pt` (~6MB) from Ultralytics. You'll see
-console output listing what it detected per frame, and an
-`annotated_output.jpg` (for image input) or live window (for webcam) with
-bounding boxes.
+### 2. ROS2 minimal pub/sub
 
-**What to be able to explain from this:** the detect → NMS → draw pipeline
-in the docstring at the top of `detect.py`, why YOLO is a single-stage
-detector (as opposed to two-stage like Faster R-CNN — faster, slightly less
-accurate), and what confidence threshold / NMS actually do.
-
----
-
-## Part 2: ROS2 minimal publisher/subscriber
-
-### Install ROS2 (Humble, on Ubuntu 22.04 in WSL2)
-
-```bash
-# Check your Ubuntu version first
-lsb_release -a
-
-locale  # verify UTF-8
-sudo apt update && sudo apt install locales
-sudo locale-gen en_US en_US.UTF-8
-sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-
-sudo apt install software-properties-common
-sudo add-apt-repository universe
-
-sudo apt update && sudo apt install curl -y
-sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-sudo apt update
-sudo apt install ros-humble-desktop -y   # includes Gazebo-related tools too
-
-echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
-source ~/.bashrc
-```
-
-(If you're on Ubuntu 24.04 instead of 22.04, use `ros-jazzy-desktop` and the
-`jazzy` codename throughout — same steps otherwise.)
-
-Verify install:
-```bash
-ros2 doctor --report
-```
-
-### Build and run this package
+Requires ROS2 Humble installed ([instructions](https://docs.ros.org/en/humble/Installation.html)).
 
 ```bash
 cd ros2_ws
@@ -84,39 +64,39 @@ source install/setup.bash
 # Terminal 1
 ros2 run minimal_demo talker
 
-# Terminal 2 (new terminal, also run: source install/setup.bash)
+# Terminal 2
 ros2 run minimal_demo listener
 ```
 
-You should see the talker printing "Publishing: ..." and the listener
-printing "Received: ..." for the same messages — that's the pub/sub model
-working end to end.
+### 3. Full perception → decision pipeline
 
-**Useful commands to poke around with** (run while talker is running):
 ```bash
-ros2 node list              # see both nodes once both are running
-ros2 topic list             # see /robot_status
-ros2 topic echo /robot_status   # watch messages without writing a subscriber
-ros2 topic hz /robot_status     # confirm publish rate
+cd ros2_ws
+colcon build --packages-select yolo_detector
+source install/setup.bash
+
+# Terminal 1 — perception
+ros2 run yolo_detector detector --ros-args -p source:=/path/to/image.jpg
+
+# Terminal 2 — decision logic
+ros2 run yolo_detector reactor
 ```
+The reactor prints what it saw and what action it would trigger (e.g.
+`Person detected: would trigger "greet" behavior`) — a stand-in for real
+actuator commands.
 
-### Gazebo (if time permits)
+## Stack
 
-`ros-humble-desktop` already includes Gazebo integration packages. Just
-confirm it launches:
-```bash
-gazebo
-```
-A full simulated robot in Gazebo is a multi-day task (URDF modeling, sensor
-plugins, spawn scripts) — for tonight, being able to launch it and explain
-what it's for (physics simulation before touching real hardware) is enough.
+- **YOLOv8** (Ultralytics) — pretrained on COCO, single-stage anchor-free
+  object detector
+- **OpenCV** — frame capture and visualization
+- **ROS2 Humble** — node/topic pub-sub middleware, built with `colcon`
+- **TurtleSim** — used to verify ROS2 topic → motion control end to end
 
----
+## Notes
 
-## Next step after tonight
-
-Once both of these run cleanly, the natural "tie it together" project is a
-ROS2 node that wraps `detect.py`'s YOLO inference and publishes detected
-object labels on a topic (e.g. `/detected_objects`) instead of just
-printing them — that's a legitimate small portfolio project combining
-perception + ROS2, and reuses everything built here.
+- Detection messages are passed as JSON-encoded `std_msgs/String` for
+  simplicity; a production version would define a proper custom message
+  type.
+- Built and tested on Ubuntu 22.04 (WSL2) and Windows 11 (native, for
+  live webcam access).
