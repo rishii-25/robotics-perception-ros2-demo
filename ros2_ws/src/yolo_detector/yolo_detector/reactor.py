@@ -31,10 +31,12 @@ class Reactor(Node):
 
     def callback(self, msg):
         try:
-            detections = json.loads(msg.data)
+            payload = json.loads(msg.data)
         except json.JSONDecodeError:
             return
 
+        # v2 detector sends {"stamp":..., "detections":[...]}; v1 sent a bare list.
+        detections = payload.get('detections', []) if isinstance(payload, dict) else payload
         if not detections:
             return
 

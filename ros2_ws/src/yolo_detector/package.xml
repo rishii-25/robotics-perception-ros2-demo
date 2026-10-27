@@ -2,13 +2,21 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>yolo_detector</name>
-  <version>0.0.1</version>
-  <description>YOLOv8 perception node publishing detections to a ROS2 topic, with a reactor node demonstrating perception-to-decision</description>
+  <version>0.3.0</version>
+  <description>YOLOv8 perception node, decision node, and closed-loop target follower (turtlesim and TurtleBot3/Gazebo) for ROS2</description>
   <maintainer email="rishik25t4@gmail.com">rishik</maintainer>
   <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>turtlesim</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>turtlebot3_gazebo</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
